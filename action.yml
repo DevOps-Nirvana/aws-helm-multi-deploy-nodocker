@@ -29,6 +29,8 @@ runs:
         HELM_ENVIRONMENT_SLUG=${{ inputs.environment-slug }}
         HELM_DRY_RUN=${{ inputs.dry-run }}
 
+        cd deployment
+
         # Creating namespace if necessary
         kubectl create namespace $HELM_K8S_NAMESPACE || true
 
