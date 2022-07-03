@@ -47,6 +47,7 @@ To use this action, your GitHub Actions runner needs to have the following insta
 | image-tag             | yes          | N/A         | Image tag to use in each deployment.                                                                   |
 | k8s-namespace         | yes          | N/A         | Deployment namespace in kubernetes.                                                                    |
 | environment-slug      | no           | N/A         | Short name of the deployment environment (dev, prod, etc). Set this if you have a `values-<env>.yaml`. |
+| helm-extra-args       | no           | N/A         | Add additional/custom helm arguments/commands.                                                         |
 | dry-run               | no           | false       | Skip actual deployment and only show a diff.                                                           |
 
 ## Example Usage
