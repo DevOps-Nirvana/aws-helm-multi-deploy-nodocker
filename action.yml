@@ -20,6 +20,10 @@ inputs:
     description: "Skip the actual deployment and just show a diff."
     required: false
     default: false
+  timeout:
+    description: "The timeout time (s) for helm operations."
+    required: false
+    default: 300
 
 runs:
   using: 'composite'
@@ -34,6 +38,7 @@ runs:
         HELM_ENVIRONMENT_SLUG=${{ inputs.environment-slug }}
         HELM_DRY_RUN=${{ inputs.dry-run }}
         HELM_EXTRA_ARGS=${{ inputs.helm-extra-args }}
+        HELM_TIMEOUT=${{ inputs.timeout }}
 
         cd deployment
 
@@ -60,7 +65,7 @@ runs:
 
           if [ "$HELM_DRY_RUN" = "false" ]; then
             echo "--- HELM UPGRADE ---"
-            helm upgrade --install --atomic --namespace $HELM_K8S_NAMESPACE $CURRENT_HELM_CHART ./$CURRENT_HELM_CHART \
+            helm upgrade --install --atomic --timeout $HELM_TIMEOUT --namespace $HELM_K8S_NAMESPACE $CURRENT_HELM_CHART ./$CURRENT_HELM_CHART \
               $VALUES_FILE_ARGS \
               $HELM_EXTRA_ARGS;
           fi
