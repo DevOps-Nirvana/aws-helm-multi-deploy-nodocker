@@ -21,9 +21,9 @@ inputs:
     required: false
     default: false
   timeout:
-    description: "The timeout time (s) for helm operations."
+    description: "The timeout time for helm operations."
     required: false
-    default: 300
+    default: 300s
 
 runs:
   using: 'composite'
