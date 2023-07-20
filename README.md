@@ -42,14 +42,16 @@ To use this action, your GitHub Actions runner needs to have the following insta
 
 ## Inputs
 
-| **Input**             | **Required** | **Default** | **Description**                                                                                        |
-|-----------------------|--------------|-------------|--------------------------------------------------------------------------------------------------------|
-| image-tag             | yes          | N/A         | Image tag to use in each deployment.                                                                   |
-| k8s-namespace         | yes          | N/A         | Deployment namespace in kubernetes.                                                                    |
-| environment-slug      | no           | N/A         | Short name of the deployment environment (dev, prod, etc). Set this if you have a `values-<env>.yaml`. |
-| helm-extra-args       | no           | N/A         | Add additional/custom helm arguments/commands.                                                         |
-| dry-run               | no           | false       | Skip actual deployment and only show a diff.                                                           |
-| timeout               | no           | 300s        | Timeout time for helm operations.                                                                      |
+| **Input**              | **Required** | **Default** | **Description**                                                                                        |
+|------------------------|--------------|-------------|--------------------------------------------------------------------------------------------------------|
+| image-tag              | yes          | N/A         | Image tag to use in each deployment.                                                                   |
+| k8s-namespace          | yes          | N/A         | Deployment namespace in kubernetes.                                                                    |
+| environment-slug       | no           | N/A         | Short name of the deployment environment (dev, prod, etc). Set this if you have a `values-<env>.yaml`. |
+| helm-extra-args        | no           | N/A         | Add additional/custom helm arguments/commands.                                                         |
+| helm-chart-name-prefix | no           | N/A         | Add string to prefix helm chart name (eg: dev-)                                                        |
+| helm-chart-name-suffix | no           | N/A         | Add string to suffix helm chart name (eg: -dev)                                                        |
+| dry-run                | no           | false       | Skip actual deployment and only show a diff.                                                           |
+| timeout                | no           | 300s        | Timeout time for helm operations.                                                                      |
 
 ## Example Usage
 

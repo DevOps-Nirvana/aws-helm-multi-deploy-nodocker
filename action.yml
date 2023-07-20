@@ -16,6 +16,12 @@ inputs:
   helm-extra-args:
     description: "Add additional/custom helm arguments/commands."
     required: false
+  helm-chart-name-prefix:
+    description: "Add string to prefix helm chart name (eg: dev-)"
+    required: false
+  helm-chart-name-suffix:
+    description: "Add string to suffix helm chart name (eg: -dev)"
+    required: false
   dry-run:
     description: "Skip the actual deployment and just show a diff."
     required: false
@@ -39,6 +45,8 @@ runs:
         HELM_DRY_RUN=${{ inputs.dry-run }}
         HELM_EXTRA_ARGS=${{ inputs.helm-extra-args }}
         HELM_TIMEOUT=${{ inputs.timeout }}
+        HELM_CHART_NAME_PREFIX=${{ inputs.helm-chart-name-prefix }}
+        HELM_CHART_NAME_SUFFIX=${{ inputs.helm-chart-name-suffix }}
 
         cd deployment
 
@@ -59,13 +67,13 @@ runs:
           VALUES_FILE_ARGS="-f $CURRENT_HELM_CHART/values.yaml${VALUES_ENV_FILE:+ -f $VALUES_ENV_FILE}"
 
           echo "--- HELM DIFF ---"
-          helm diff upgrade --allow-unreleased --namespace $HELM_K8S_NAMESPACE $HELM_UPDIFF_EXTRA_ARGS $CURRENT_HELM_CHART ./$CURRENT_HELM_CHART \
+          helm diff upgrade --allow-unreleased --namespace $HELM_K8S_NAMESPACE $HELM_UPDIFF_EXTRA_ARGS $HELM_CHART_NAME_PREFIX$CURRENT_HELM_CHART$HELM_CHART_NAME_SUFFIX ./$CURRENT_HELM_CHART \
             $VALUES_FILE_ARGS \
             $HELM_EXTRA_ARGS
 
           if [ "$HELM_DRY_RUN" = "false" ]; then
             echo "--- HELM UPGRADE ---"
-            helm upgrade --install --atomic --timeout $HELM_TIMEOUT --namespace $HELM_K8S_NAMESPACE $CURRENT_HELM_CHART ./$CURRENT_HELM_CHART \
+            helm upgrade --install --atomic --timeout $HELM_TIMEOUT --namespace $HELM_K8S_NAMESPACE $HELM_CHART_NAME_PREFIX$CURRENT_HELM_CHART$HELM_CHART_NAME_SUFFIX ./$CURRENT_HELM_CHART \
               $VALUES_FILE_ARGS \
               $HELM_EXTRA_ARGS;
           fi
