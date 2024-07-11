@@ -30,6 +30,10 @@ inputs:
     description: "The timeout time for helm operations."
     required: false
     default: 300s
+  wait:
+    description: "Wait for deployment to complete and be healthy before returning (uses helm --wait option)."
+    required: false
+    default: false
 
 runs:
   using: 'composite'
@@ -47,7 +51,10 @@ runs:
         HELM_TIMEOUT=${{ inputs.timeout }}
         HELM_CHART_NAME_PREFIX=${{ inputs.helm-chart-name-prefix }}
         HELM_CHART_NAME_SUFFIX=${{ inputs.helm-chart-name-suffix }}
-
+        HELM_WAIT=""
+        if [ "${{ inputs.wait }}" = "true" ]; then
+          HELM_WAIT="--wait"
+        fi
         cd deployment
 
         # Creating namespace if necessary
@@ -73,7 +80,7 @@ runs:
 
           if [ "$HELM_DRY_RUN" = "false" ]; then
             echo "--- HELM UPGRADE ---"
-            helm upgrade --install --atomic --timeout $HELM_TIMEOUT --namespace $HELM_K8S_NAMESPACE $HELM_CHART_NAME_PREFIX$CURRENT_HELM_CHART$HELM_CHART_NAME_SUFFIX ./$CURRENT_HELM_CHART \
+            helm upgrade --install --atomic --timeout $HELM_TIMEOUT $HELM_WAIT --namespace $HELM_K8S_NAMESPACE $HELM_CHART_NAME_PREFIX$CURRENT_HELM_CHART$HELM_CHART_NAME_SUFFIX ./$CURRENT_HELM_CHART \
               $VALUES_FILE_ARGS \
               $HELM_EXTRA_ARGS;
           fi
