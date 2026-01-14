@@ -96,6 +96,11 @@ runs:
         HELM_CHART_NAME_PREFIX=${{ inputs.helm-chart-name-prefix }}
         HELM_CHART_NAME_SUFFIX=${{ inputs.helm-chart-name-suffix }}
         HELM_DRY_RUN=${{ inputs.dry-run }}
+        HELM_TIMEOUT=${{ inputs.timeout }}
+        HELM_WAIT=""
+        if [ "${{ inputs.wait }}" = "true" ]; then
+          HELM_WAIT="--wait"
+        fi
 
         # Skip rollback check if this was a dry-run
         if [ "$HELM_DRY_RUN" = "true" ]; then
