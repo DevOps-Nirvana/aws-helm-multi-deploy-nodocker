@@ -128,10 +128,10 @@ runs:
 
               if [ -n "$LAST_REVISION" ] && [ "$LAST_REVISION" != "null" ]; then
                 echo "Rolling back '$RELEASE_NAME' to revision $LAST_REVISION..."
-                helm rollback "$RELEASE_NAME" "$LAST_REVISION" --namespace "$HELM_K8S_NAMESPACE" --wait || echo "Rollback failed for $RELEASE_NAME"
+                helm rollback "$RELEASE_NAME" "$LAST_REVISION" --namespace "$HELM_K8S_NAMESPACE" --timeout $HELM_TIMEOUT $HELM_WAIT  || echo "Rollback failed for $RELEASE_NAME"
               else
                 echo "No previous successful revision found for '$RELEASE_NAME'. Uninstalling the failed release..."
-                helm uninstall "$RELEASE_NAME" --namespace "$HELM_K8S_NAMESPACE" || echo "Uninstall failed for $RELEASE_NAME"
+                helm uninstall "$RELEASE_NAME" --namespace "$HELM_K8S_NAMESPACE" --timeout $HELM_TIMEOUT $HELM_WAIT || echo "Uninstall failed for $RELEASE_NAME"
               fi
               ;;
             not-found)
