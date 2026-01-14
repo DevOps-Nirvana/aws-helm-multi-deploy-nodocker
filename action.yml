@@ -85,3 +85,62 @@ runs:
               $HELM_EXTRA_ARGS;
           fi
         done
+
+    # Cleanup step that runs when the action is cancelled
+    - shell: bash
+      if: cancelled()
+      run: |
+        echo "Action was cancelled - checking for pending/broken deployments to rollback..."
+
+        HELM_K8S_NAMESPACE=${{ inputs.k8s-namespace }}
+        HELM_CHART_NAME_PREFIX=${{ inputs.helm-chart-name-prefix }}
+        HELM_CHART_NAME_SUFFIX=${{ inputs.helm-chart-name-suffix }}
+        HELM_DRY_RUN=${{ inputs.dry-run }}
+
+        # Skip rollback check if this was a dry-run
+        if [ "$HELM_DRY_RUN" = "true" ]; then
+          echo "Dry-run mode was enabled, no rollback needed."
+          exit 0
+        fi
+
+        cd deployment
+
+        # Iterate through all our deployments and check their status
+        for CURRENT_HELM_CHART in $(ls -d */ | grep -Evi "helm_value_files|templates" | tr '/' ' '); do
+          RELEASE_NAME="$HELM_CHART_NAME_PREFIX$CURRENT_HELM_CHART$HELM_CHART_NAME_SUFFIX"
+
+          echo "Checking status of release: $RELEASE_NAME"
+
+          # Get the release status
+          RELEASE_STATUS=$(helm status "$RELEASE_NAME" --namespace "$HELM_K8S_NAMESPACE" -o json 2>/dev/null | jq -r '.info.status' 2>/dev/null || echo "not-found")
+
+          echo "Release '$RELEASE_NAME' status: $RELEASE_STATUS"
+
+          case "$RELEASE_STATUS" in
+            deployed)
+              echo "Release '$RELEASE_NAME' is in a healthy state (deployed). No rollback needed."
+              ;;
+            pending-install|pending-upgrade|pending-rollback|failed|superseded)
+              echo "Release '$RELEASE_NAME' is in a broken/pending state ($RELEASE_STATUS). Initiating rollback..."
+              
+              # Get the last successful revision (if any)
+              LAST_REVISION=$(helm history "$RELEASE_NAME" --namespace "$HELM_K8S_NAMESPACE" -o json 2>/dev/null | jq -r '[.[] | select(.status == "deployed")] | last | .revision // empty' 2>/dev/null || echo "")
+
+              if [ -n "$LAST_REVISION" ] && [ "$LAST_REVISION" != "null" ]; then
+                echo "Rolling back '$RELEASE_NAME' to revision $LAST_REVISION..."
+                helm rollback "$RELEASE_NAME" "$LAST_REVISION" --namespace "$HELM_K8S_NAMESPACE" --wait || echo "Rollback failed for $RELEASE_NAME"
+              else
+                echo "No previous successful revision found for '$RELEASE_NAME'. Uninstalling the failed release..."
+                helm uninstall "$RELEASE_NAME" --namespace "$HELM_K8S_NAMESPACE" || echo "Uninstall failed for $RELEASE_NAME"
+              fi
+              ;;
+            not-found)
+              echo "Release '$RELEASE_NAME' not found. Nothing to rollback."
+              ;;
+            *)
+              echo "Release '$RELEASE_NAME' has unknown status: $RELEASE_STATUS. Skipping."
+              ;;
+          esac
+        done
+
+        echo "Cancellation cleanup complete."
