@@ -1,5 +1,6 @@
 name: 'Kubernetes Helm Multi-Deploy (No Docker)'
-description: "Deploys all helm chart folders inside a 'deployment' folder in the project root."
+description: "Deploys all helm chart folders inside a 'deployment' folder in the project root, or a single chart if helm-chart-name is specified."
+
 icon: play
 color: green
 
@@ -15,6 +16,9 @@ inputs:
     required: false
   helm-extra-args:
     description: "Add additional/custom helm arguments/commands."
+    required: false
+  helm-chart-name:
+    description: "Deploy a single specific chart by name instead of all charts in the deployment folder."
     required: false
   helm-chart-name-prefix:
     description: "Add string to prefix helm chart name (eg: dev-)"
@@ -40,7 +44,6 @@ runs:
   steps:
     - shell: bash
       run: |
-
         (kubectl --help &> /dev/null && helm diff version &> /dev/null) || (echo "Please install kubectl, helm, and helm-diff in your runner. Alternatively use one of our docker-based versions of this action: https://github.com/DevOps-Nirvana/" && exit 1)
 
         HELM_IMAGE_TAG=${{ inputs.image-tag }}
@@ -51,10 +54,12 @@ runs:
         HELM_TIMEOUT=${{ inputs.timeout }}
         HELM_CHART_NAME_PREFIX=${{ inputs.helm-chart-name-prefix }}
         HELM_CHART_NAME_SUFFIX=${{ inputs.helm-chart-name-suffix }}
+
         HELM_WAIT=""
         if [ "${{ inputs.wait }}" = "true" ]; then
           HELM_WAIT="--wait"
         fi
+
         cd deployment
 
         # Creating namespace if necessary
@@ -63,9 +68,15 @@ runs:
         # Setup our helm args
         export HELM_EXTRA_ARGS="$HELM_EXTRA_ARGS --set image.tag=$HELM_IMAGE_TAG --set global.image.tag=$HELM_IMAGE_TAG --set global.namespace=$HELM_K8S_NAMESPACE";
 
-        # Iterate through all our deployments
-        for CURRENT_HELM_CHART in $(ls -d */ | grep -Evi "helm_value_files|templates" | tr '/' ' '); do
+        # If a specific chart name was provided, use that; otherwise iterate all
+        if [ -n "${{ inputs.helm-chart-name }}" ]; then
+          HELM_CHARTS="${{ inputs.helm-chart-name }}"
+        else
+          HELM_CHARTS=$(ls -d */ | grep -Evi "helm_value_files|templates" | tr '/' ' ')
+        fi
 
+        # Iterate through all our deployments
+        for CURRENT_HELM_CHART in $HELM_CHARTS; do
           echo "Update our helm chart dependencies"
           helm dependency update $CURRENT_HELM_CHART || true
 
@@ -91,12 +102,12 @@ runs:
       if: cancelled()
       run: |
         echo "Action was cancelled - checking for pending/broken deployments to rollback..."
-
         HELM_K8S_NAMESPACE=${{ inputs.k8s-namespace }}
         HELM_CHART_NAME_PREFIX=${{ inputs.helm-chart-name-prefix }}
         HELM_CHART_NAME_SUFFIX=${{ inputs.helm-chart-name-suffix }}
         HELM_DRY_RUN=${{ inputs.dry-run }}
         HELM_TIMEOUT=${{ inputs.timeout }}
+
         HELM_WAIT=""
         if [ "${{ inputs.wait }}" = "true" ]; then
           HELM_WAIT="--wait"
@@ -110,15 +121,20 @@ runs:
 
         cd deployment
 
-        # Iterate through all our deployments and check their status
-        for CURRENT_HELM_CHART in $(ls -d */ | grep -Evi "helm_value_files|templates" | tr '/' ' '); do
-          RELEASE_NAME="$HELM_CHART_NAME_PREFIX$CURRENT_HELM_CHART$HELM_CHART_NAME_SUFFIX"
+        # If a specific chart name was provided, use that; otherwise iterate all
+        if [ -n "${{ inputs.helm-chart-name }}" ]; then
+          HELM_CHARTS="${{ inputs.helm-chart-name }}"
+        else
+          HELM_CHARTS=$(ls -d */ | grep -Evi "helm_value_files|templates" | tr '/' ' ')
+        fi
 
+        # Iterate through all our deployments and check their status
+        for CURRENT_HELM_CHART in $HELM_CHARTS; do
+          RELEASE_NAME="$HELM_CHART_NAME_PREFIX$CURRENT_HELM_CHART$HELM_CHART_NAME_SUFFIX"
           echo "Checking status of release: $RELEASE_NAME"
 
           # Get the release status
           RELEASE_STATUS=$(helm status "$RELEASE_NAME" --namespace "$HELM_K8S_NAMESPACE" -o json 2>/dev/null | jq -r '.info.status' 2>/dev/null || echo "not-found")
-
           echo "Release '$RELEASE_NAME' status: $RELEASE_STATUS"
 
           case "$RELEASE_STATUS" in
@@ -127,13 +143,13 @@ runs:
               ;;
             pending-install|pending-upgrade|pending-rollback|failed|superseded)
               echo "Release '$RELEASE_NAME' is in a broken/pending state ($RELEASE_STATUS). Initiating rollback..."
-              
+
               # Get the last successful revision (if any)
               LAST_REVISION=$(helm history "$RELEASE_NAME" --namespace "$HELM_K8S_NAMESPACE" -o json 2>/dev/null | jq -r '[.[] | select(.status == "deployed")] | last | .revision // empty' 2>/dev/null || echo "")
 
               if [ -n "$LAST_REVISION" ] && [ "$LAST_REVISION" != "null" ]; then
                 echo "Rolling back '$RELEASE_NAME' to revision $LAST_REVISION..."
-                helm rollback "$RELEASE_NAME" "$LAST_REVISION" --namespace "$HELM_K8S_NAMESPACE" --timeout $HELM_TIMEOUT $HELM_WAIT  || echo "Rollback failed for $RELEASE_NAME"
+                helm rollback "$RELEASE_NAME" "$LAST_REVISION" --namespace "$HELM_K8S_NAMESPACE" --timeout $HELM_TIMEOUT $HELM_WAIT || echo "Rollback failed for $RELEASE_NAME"
               else
                 echo "No previous successful revision found for '$RELEASE_NAME'. Uninstalling the failed release..."
                 helm uninstall "$RELEASE_NAME" --namespace "$HELM_K8S_NAMESPACE" --timeout $HELM_TIMEOUT $HELM_WAIT || echo "Uninstall failed for $RELEASE_NAME"
