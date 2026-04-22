@@ -1,5 +1,5 @@
 name: 'Kubernetes Helm Multi-Deploy (No Docker)'
-description: "Deploys all helm chart folders inside a 'deployment' folder in the project root, or a single chart if helm-chart-name is specified."
+description: "Deploys helm charts in a 'deployment' folder. Specify helm-chart-name for a single chart, or deploys all by default."
 
 icon: play
 color: green
